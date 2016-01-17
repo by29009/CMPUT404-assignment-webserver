@@ -1,7 +1,10 @@
 #  coding: utf-8 
 import SocketServer
+import socket
+import os
+import os.path
 
-# Copyright 2013 Abram Hindle, Eddie Antonio Santos
+# Copyright 2013 Abram Hindle, Eddie Antonio Santos, by29009@gmail.com
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,13 +29,81 @@ import SocketServer
 
 # try: curl -v -X GET http://127.0.0.1:8080/
 
-
 class MyWebServer(SocketServer.BaseRequestHandler):
-    
+
     def handle(self):
-        self.data = self.request.recv(1024).strip()
-        print ("Got a request of: %s\n" % self.data)
-        self.request.sendall("OK")
+        request = self.request
+        assert(isinstance(request, socket.socket))
+        requestData = request.recv(4096)
+
+        print ("######### Got a request #########\n{0}\n".format(requestData.strip()))
+
+        httpRequest = requestData.strip().split('\n')[0]
+
+        if httpRequest[:4] != 'GET ':
+            self.request.sendall('400 Bad Request')
+            print('Error: Only GET is supported')
+            return
+
+        if len(httpRequest.split(' ')) != 3:
+            self.request.sendall('400 Bad Request')
+            print('Error: Bad request (first line should have three parts)')
+            return
+
+        _, requestURL, httpVer = map(lambda x: x.strip(), httpRequest.split(' '))
+
+        if httpVer not in ['HTTP/1.0', 'HTTP/1.1']:
+            self.request.sendall('400 Bad Request')
+            print('Error: Bad HTTP ver')
+            return
+
+        pyPath = os.path.dirname(os.path.realpath(__file__))
+        pyPath = os.path.join(pyPath, 'www')
+
+        requestURL = os.path.normpath(requestURL)
+        if requestURL[0] == '\\':
+            requestURL = requestURL[1:]
+
+        requestPath = os.path.join(pyPath, requestURL)
+
+        # print(pyPath)
+        # print(requestPath)
+
+        responseCode = '200 OK'
+
+        if not os.path.exists(requestPath):
+            responseCode = '404 Not Found'
+            requestPath = os.path.join(pyPath, '404page.html')
+
+        if not os.path.isfile(requestPath):
+            requestPath = os.path.join(requestPath, 'index.html')
+
+        requestPath = os.path.normpath(requestPath)
+        if requestPath.find(pyPath) == -1:
+            responseCode = '403 Forbidden'
+            requestPath = os.path.join(pyPath, '403page.html')
+
+        with open(requestPath, 'rb') as f:
+            fileBuf = f.read()
+
+        _, ext = os.path.splitext(requestPath)
+
+        contentType = 'text'
+        if ext == '.html':
+            contentType = 'text/html'
+        elif ext == '.css':
+            contentType = 'text/css'
+
+        response = httpVer + ' {0}\r\n'.format(responseCode)
+        response += 'Cache-Control: no-cache\r\n'
+        response += 'Content-Type: {0}; charset=utf-8\r\n'.format(contentType)
+        response += 'Content-Length: {0}\r\n'.format(len(fileBuf))
+        response += 'Connection: close\r\n'
+        response += '\r\n'
+        response += fileBuf
+        response + '\r\n\r\n' # needed?
+
+        self.request.sendall(response)
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
