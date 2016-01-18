@@ -52,6 +52,11 @@ class MyWebServer(SocketServer.BaseRequestHandler):
 
         _, requestURL, httpVer = map(lambda x: x.strip(), httpRequest.split(' '))
 
+        if requestURL[-1] == '/':
+            expectFolder = True
+        else:
+            expectFolder = False
+
         if httpVer not in ['HTTP/1.0', 'HTTP/1.1']:
             self.request.sendall('400 Bad Request')
             print('Error: Bad HTTP ver')
@@ -76,7 +81,11 @@ class MyWebServer(SocketServer.BaseRequestHandler):
             requestPath = os.path.join(pyPath, '404page.html')
 
         if not os.path.isfile(requestPath):
-            requestPath = os.path.join(requestPath, 'index.html')
+            if expectFolder:
+                requestPath = os.path.join(requestPath, 'index.html')
+            else:
+                responseCode = '404 Not Found'
+                requestPath = os.path.join(pyPath, '404page.html')
 
         requestPath = os.path.normpath(requestPath)
         if requestPath.find(pyPath) == -1:
