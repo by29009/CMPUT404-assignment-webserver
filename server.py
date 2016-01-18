@@ -66,7 +66,7 @@ class MyWebServer(SocketServer.BaseRequestHandler):
         pyPath = os.path.join(pyPath, 'www')
 
         requestURL = os.path.normpath(requestURL)
-        if requestURL[0] == '\\':
+        if requestURL[0] in ['\\', '/']:
             requestURL = requestURL[1:]
 
         requestPath = os.path.join(pyPath, requestURL)
@@ -77,18 +77,22 @@ class MyWebServer(SocketServer.BaseRequestHandler):
         responseCode = '200 OK'
 
         if not os.path.exists(requestPath):
+            print('404: {0}'.format(requestPath))
             responseCode = '404 Not Found'
             requestPath = os.path.join(pyPath, '404page.html')
 
         if not os.path.isfile(requestPath):
             if expectFolder:
                 requestPath = os.path.join(requestPath, 'index.html')
+
             else:
                 responseCode = '404 Not Found'
                 requestPath = os.path.join(pyPath, '404page.html')
 
         requestPath = os.path.normpath(requestPath)
-        if requestPath.find(pyPath) == -1:
+        absRequestPath = os.path.normpath(os.path.join(os.getcwd(), requestPath))
+        if absRequestPath.find(pyPath) == -1:
+            print('403: {0} {1}'.format(pyPath, absRequestPath))
             responseCode = '403 Forbidden'
             requestPath = os.path.join(pyPath, '403page.html')
 
@@ -110,7 +114,7 @@ class MyWebServer(SocketServer.BaseRequestHandler):
         response += 'Connection: close\r\n'
         response += '\r\n'
         response += fileBuf
-        response + '\r\n\r\n' # needed?
+        response += '\r\n\r\n' # needed?
 
         self.request.sendall(response)
 
