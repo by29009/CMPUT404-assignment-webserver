@@ -51,6 +51,7 @@ class MyWebServer(SocketServer.BaseRequestHandler):
             return
 
         _, requestURL, httpVer = map(lambda x: x.strip(), httpRequest.split(' '))
+        origRequestURL = str(requestURL)
 
         if requestURL[-1] == '/':
             expectFolder = True
@@ -84,10 +85,12 @@ class MyWebServer(SocketServer.BaseRequestHandler):
         if not os.path.isfile(requestPath):
             if expectFolder:
                 requestPath = os.path.join(requestPath, 'index.html')
-
             else:
-                responseCode = '404 Not Found'
-                requestPath = os.path.join(pyPath, '404page.html')
+                # want to redirect TODO
+                response = httpVer + ' 301 Moved Permanently\r\nLocation: {0}\r\n\r\n'.format(origRequestURL + '/')
+                self.request.sendall(response)
+                # responseCode = '404 Not Found'
+                # requestPath = os.path.join(pyPath, '404page.html')
 
         requestPath = os.path.normpath(requestPath)
         absRequestPath = os.path.normpath(os.path.join(os.getcwd(), requestPath))
